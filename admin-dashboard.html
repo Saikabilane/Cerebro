@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Admin - Create Quiz</title>
+  <link rel="stylesheet" href="admin-styles.css">
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+    import { getFirestore, doc, setDoc, Timestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyBCVLgeq5qH6RikgWuSR7rJk3B9kVfmCh0",
+      authDomain: "cerebro-8a462.firebaseapp.com",
+      projectId: "cerebro-8a462",
+      storageBucket: "cerebro-8a462.firebasestorage.app",
+      messagingSenderId: "1049308363509",
+      appId: "1:1049308363509:web:192d61f795435d2f81a3bc"
+    };
+
+    function showToast(message) {
+      const container = document.getElementById("notification-container");
+      const toast = document.createElement("div");
+      toast.className = "toast";
+      toast.textContent = message;
+
+      container.appendChild(toast);
+
+      // Remove the toast after animation
+      setTimeout(() => {
+          toast.remove();
+      }, 4000);
+    }
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+    const questions = [];
+
+    document.addEventListener("DOMContentLoaded", () => {
+      const form = document.getElementById("quizForm");
+      const addBtn = document.getElementById("addQ");
+      const list = document.getElementById("questionList");
+      const submitBtn = document.getElementById("submitBtn");
+
+      addBtn.addEventListener("click", () => {
+        const q = document.getElementById("qtext").value.trim();
+        const o1 = document.getElementById("opt1").value.trim();
+        const o2 = document.getElementById("opt2").value.trim();
+        const o3 = document.getElementById("opt3").value.trim();
+        const o4 = document.getElementById("opt4").value.trim();
+        const ans = document.getElementById("correct").value.trim();
+
+        if (!q || !o1 || !o2 || !o3 || !o4 || !ans) {
+          showToast("Please fill out all fields for the question.");
+          return;
+        }
+
+        const newQ = {
+          question: q,
+          options: [o1, o2, o3, o4],
+          correctAnswer: ans
+        };
+        questions.push(newQ);
+
+        const div = document.createElement("div");
+        div.className = "qBox";
+        div.innerHTML = `<strong>Q${questions.length}:</strong> ${q}<br><em>Options:</em> ${o1}, ${o2}, ${o3}, ${o4} | <b>Ans:</b> ${ans}`;
+        list.appendChild(div);
+
+        // Clear fields
+        document.getElementById("qtext").value = "";
+        document.getElementById("opt1").value = "";
+        document.getElementById("opt2").value = "";
+        document.getElementById("opt3").value = "";
+        document.getElementById("opt4").value = "";
+        document.getElementById("correct").value = "";
+
+        // Enable submit once at least one question added
+        if (questions.length === 1) submitBtn.disabled = false;
+      });
+
+      form.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        if (questions.length === 0) {
+          showToast("Please add at least one question.");
+          return;
+        }
+
+        const quizName = document.getElementById("quizName").value.trim();
+        const duration = parseInt(document.getElementById("duration").value);
+        const startTimeStr = document.getElementById("startTime").value;
+        const startTime = Timestamp.fromDate(new Date(startTimeStr));
+        const quizId = quizName.toLowerCase().replace(/\s+/g, "_");
+
+        await setDoc(doc(db, "tests", quizId), {
+          name: quizName,
+          duration,
+          startTime,
+          questions
+        });
+
+        showToast("Quiz uploaded successfully!");
+        form.reset();
+        list.innerHTML = "";
+        questions.length = 0;
+        submitBtn.disabled = true;
+      });
+    });
+  </script>
+</head>
+<body>
+  <h2>Create Quiz</h2>
+  <form id="quizForm">
+    <label>Quiz Name:</label>
+    <input type="text" id="quizName" required />
+
+    <label>Start Time:</label>
+    <input type="datetime-local" id="startTime" required />
+
+    <label>Duration (in minutes):</label>
+    <input type="number" id="duration" required />
+
+    <h3>Add a Question</h3>
+    <input type="text" id="qtext" placeholder="Question" />
+    <input type="text" id="opt1" placeholder="Option 1" />
+    <input type="text" id="opt2" placeholder="Option 2" />
+    <input type="text" id="opt3" placeholder="Option 3" />
+    <input type="text" id="opt4" placeholder="Option 4" />
+    <input type="text" id="correct" placeholder="Correct Answer" />
+    <button type="button" id="addQ">Add Question</button>
+
+    <div id="questionList" style="color: black;"></div>
+
+    <button type="submit" id="submitBtn" disabled>Upload Test</button>
+  </form>
+  <div id="notification-container"></div>
+</body>
+</html>

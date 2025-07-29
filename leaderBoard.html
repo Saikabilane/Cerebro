@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cerebro - Leaderboard</title>
+    <style>
+        body {
+        margin: 0%;
+        font-family: Arial, sans-serif;
+        width: 100%;
+        }
+
+        *{
+            box-sizing: border-box;
+        }
+
+        /* Fixed top nav bar */
+        .navbar {
+        position: fixed;
+        top: 0;
+        width: 100%;
+        background-color: white;
+        color: orange;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 0.8rem 1.5rem;
+        z-index: 1000;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+        }
+
+        .navbar a {
+        color: white;
+        text-decoration: none;
+        margin: 0 1rem;
+        font-weight: bold;
+        }
+
+        .navbar a:hover {
+        text-decoration: underline;
+        }
+        .logo img {
+        height: 40px;
+        }
+
+        .content {
+        padding-top: 70px;
+        padding: 2rem;
+        }
+
+        .rest{
+            padding: 1%;
+        }
+
+    #loading {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(255,255,255,0.8);
+      z-index: 9999;
+      display: none;
+      justify-content: center;
+      align-items: center;
+      font-size: 1.5rem;
+      color: #444;
+    }
+
+    .loader {
+      border: 6px solid orange;
+      border-top: 6px solid white;
+      border-radius: 50%;
+      width: 50px;
+      height: 50px;
+      animation: spin 1s linear infinite;
+      margin-right: 10px;
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    .Leaderboard{
+    outline: none;
+    color: orange;
+    background-color: white;
+    border: none;
+    cursor: pointer;
+    font-size: medium;
+    }
+
+    .Leaderboard:active{
+        color: black;
+    }
+
+    .card {
+      background: #fff;
+      border-radius: 10px;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+      padding: 1rem;
+      margin: 1rem 0;
+      transition: transform 0.2s;
+    }
+
+    .card:hover {
+      transform: translateY(-5px);
+    }
+
+    .rank {
+      font-size: 1.2rem;
+      font-weight: bold;
+      color: orange;
+    }
+
+    .name {
+      font-size: 1.5rem;
+      font-weight: 600;
+      margin: 0.3rem 0;
+    }
+
+    .score {
+      font-size: 1.2rem;
+      color: #444;
+    }
+
+
+    </style>
+    <script type="module">
+      import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+      import { getFirestore, collection, getDocs, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+    
+      const firebaseConfig = {
+        apiKey: "AIzaSyBCVLgeq5qH6RikgWuSR7rJk3B9kVfmCh0",
+        authDomain: "cerebro-8a462.firebaseapp.com",
+        projectId: "cerebro-8a462",
+        storageBucket: "cerebro-8a462.appspot.com",
+        messagingSenderId: "1049308363509",
+        appId: "1:1049308363509:web:192d61f795435d2f81a3bc"
+      };
+    
+      const app = initializeApp(firebaseConfig);
+      const db = getFirestore(app);
+    
+      const restDiv = document.querySelector(".rest");
+      const loader = document.getElementById("loading");
+    
+      async function loadLeaderboard() {
+        loader.style.display = "flex";
+    
+        const responsesSnapshot = await getDocs(collection(db, "responses"));
+        const leaderboard = [];
+    
+        for (const docSnap of responsesSnapshot.docs) {
+          const uid = docSnap.id;
+          const data = docSnap.data();
+    
+          let totalScore = 0;
+          for (const quizId in data) {
+            totalScore += data[quizId].score || 0;
+          }
+    
+          const userSnap = await getDoc(doc(db, "users", uid));
+          const userName = userSnap.exists() ? userSnap.data().name : "Unknown";
+    
+          leaderboard.push({ name: userName, score: totalScore });
+        }
+    
+        leaderboard.sort((a, b) => b.score - a.score);
+    
+        let html = `<br><br><br><h2>🏆 Leaderboard</h2>`;
+        leaderboard.forEach((user, i) => {
+          html += `
+            <div class="card">
+              <div class="rank">#${i + 1}</div>
+              <div class="name">${user.name}</div>
+              <div class="score">Score: ${user.score}</div>
+            </div>
+          `;
+        });
+
+    
+        restDiv.innerHTML = html;
+        loader.style.display = "none";
+        document.body.style.opacity = "1";
+      }
+    
+      loadLeaderboard();
+    </script>
+    
+</head>
+<body>
+    <div class="navbar">
+        <div class="logo"><img src="assets\Cerebro_modified.png"></div>
+        <button class="Leaderboard" onclick="Leaderboard()">Back</button>
+    </div>
+    <div class="rest">
+
+    </div>
+    <div id="loading">
+        <div class="loader"></div>
+      </div>  
+    <script>
+        function Leaderboard() {
+          document.getElementById('loading').style.display = "flex";
+          document.body.style.opacity = '0.6';
+          setTimeout(() => {
+            window.location.href = "./user-dashboard.html";
+          }, 2000);
+        }
+    </script>
+</body>
+</html>

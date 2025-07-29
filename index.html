@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="style.css">
+    <script type="module" src="script.js"></script>
+    <title>Cerebro</title>
+    <script>
+        
+        window.onload = function () {
+        showForm('user'); // Show user login on load
+        document.querySelectorAll('.logBut').forEach(btn => btn.classList.remove('active'));
+        document.querySelector('.logBut').classList.add('active'); // First button
+        };
+
+
+        function showForm(formId) {
+        const forms = document.querySelectorAll('.form');
+        const buttons = document.querySelectorAll('.logBut');
+
+        // Hide all forms
+        forms.forEach(form => {
+            form.style.display = 'none';
+        });
+
+        // Remove active class from all buttons
+        buttons.forEach(btn => {
+            btn.classList.remove('active');
+        });
+
+        // Show selected form and highlight the clicked button
+        document.getElementById(formId).style.display = 'block';
+        const activeButton = document.querySelector(`.logBut[onclick="showForm('${formId}')"]`);
+        if (activeButton) {
+            activeButton.classList.add('active');
+        }
+        }
+
+    </script>
+</head>
+<body>
+    
+    <div class="Login">
+        <!--login-->
+        <div class="loginBox">
+            <button class="logBut" onclick="showForm('user')">User Login</button>
+            <button class="logBut" onclick="showForm('admin')">Admin Login</button>
+            <button class="logBut" onclick="showForm('register')">New User</button>
+        </div>
+        <img src="assets\Cerebro.png">
+        
+        <!-- Dynamic content area -->
+        <div id="formContainer" class="form-container">
+            <!-- Default will be admin -->
+            <div id="user" class="form">
+                <h2>User Login</h2>
+                <input id="Username" type="text" placeholder="Registered Mail id">
+                <input id="Password" type="password" placeholder="Password">
+                <button>Login</button>
+            </div>
+
+            <div id="admin" class="form" style="display: none;">
+                <h2>Admin Login</h2>
+                <input id="Username" type="text" placeholder="Admin ID">
+                <input id="Password" type="password" placeholder="Password">
+                <button>Login</button>
+            </div>
+    
+            <div id="register" class="form" style="display: none;">
+                <h2>Register</h2>
+                <input id="Username" type="text" placeholder="Full Name">
+                <input id="MailID" type="email" placeholder="Email">
+                <input id="Password" type="password" placeholder="Password">
+                <button id="signupBtn">Sign Up</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="notification-container"></div>
+    <div id="loader" class="loader-overlay" style="display: none;">
+        <div class="spinner"></div>
+    </div>
+      
+</body>
+</html>

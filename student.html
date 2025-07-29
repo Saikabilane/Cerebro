@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Student Quiz</title>
+  <style>
+    body {
+      font-family: Arial;
+      padding: 1rem;
+      background: #f9f9f9;
+    }
+
+    .container {
+      max-width: 800px;
+      margin: auto;
+    }
+
+    .question {
+      background: #fff;
+      border: 1px solid #ccc;
+      padding: 1rem;
+      margin-bottom: 1rem;
+      border-radius: 6px;
+    }
+
+    .question h3 {
+      margin-top: 0;
+    }
+
+    .timer {
+      font-size: 1.5rem;
+      font-weight: bold;
+      text-align: center;
+      color: red;
+      margin-bottom: 1rem;
+    }
+
+    .toast {
+      position: fixed;
+      top: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      background-color: white;
+      color: orange;
+      padding: 12px 20px;
+      border: 1px solid orange;
+      border-radius: 5px;
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+      opacity: 0;
+      animation: fadeInOut 4s ease forwards;
+      z-index: 1000;
+    }
+
+    @keyframes fadeInOut {
+      0% {
+        opacity: 0;
+        transform: translateY(-10px);
+      }
+
+      10%,
+      90% {
+        opacity: 1;
+        transform: translateY(0);
+      }
+
+      100% {
+        opacity: 0;
+        transform: translateY(-10px);
+      }
+    }
+
+    button {
+      background: orange;
+      border: none;
+      color: white;
+      padding: 10px 20px;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+
+    .results {
+      background: #fff;
+      padding: 1rem;
+      border-radius: 8px;
+      margin-top: 1rem;
+      box-shadow: 0 0 5px rgba(0,0,0,0.1);
+    }
+
+  </style>
+</head>
+
+<body>
+  <div class="container">
+    <div id="timer" class="timer">Loading Timer...</div>
+    <h2 id="quizTitle">Loading quiz...</h2>
+    <form id="quizForm"></form>
+    <button id="submitBtn" style="display:none;">Submit</button>
+  </div>
+  <div id="toastContainer"></div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+    import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+    import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyBCVLgeq5qH6RikgWuSR7rJk3B9kVfmCh0",
+      authDomain: "cerebro-8a462.firebaseapp.com",
+      projectId: "cerebro-8a462",
+      storageBucket: "cerebro-8a462.appspot.com",
+      messagingSenderId: "1049308363509",
+      appId: "1:1049308363509:web:192d61f795435d2f81a3bc"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+    const auth = getAuth(app);
+
+    const quizId = new URLSearchParams(window.location.search).get("quizId");
+    const quizTitle = document.getElementById("quizTitle");
+    const quizForm = document.getElementById("quizForm");
+    const timerDiv = document.getElementById("timer");
+    const submitBtn = document.getElementById("submitBtn");
+
+    let quizData = null;
+    let timerInterval = null;
+
+    function showToast(msg) {
+      const div = document.createElement("div");
+      div.className = "toast";
+      div.innerText = msg;
+      document.getElementById("toastContainer").appendChild(div);
+      setTimeout(() => div.remove(), 4000);
+    }
+
+    function renderQuestions(questions) {
+      quizForm.innerHTML = "";
+      questions.forEach((q, i) => {
+        const div = document.createElement("div");
+        div.className = "question";
+        div.innerHTML = `<h3>Q${i + 1}. ${q.question}</h3>`;
+        q.options.forEach(opt => {
+          div.innerHTML += `
+            <label>
+              <input type="radio" name="q${i}" value="${opt}" /> ${opt}
+            </label><br/>
+          `;
+        });
+        quizForm.appendChild(div);
+      });
+    }
+
+    function startTimer(durationMinutes) {
+      let totalSeconds = durationMinutes * 60;
+
+      function updateTimer() {
+        if (totalSeconds <= 0) {
+          clearInterval(timerInterval);
+          timerDiv.textContent = "Time is up!";
+          if (!submitBtn.disabled) submitBtn.click();
+          return;
+        }
+
+        const mins = Math.floor(totalSeconds / 60);
+        const secs = totalSeconds % 60;
+        timerDiv.textContent = `Time Remaining: ${mins}m ${secs}s`;
+        totalSeconds--;
+      }
+
+      updateTimer(); // Run immediately
+      timerInterval = setInterval(updateTimer, 1000);
+    }
+
+    async function submitAnswers(userId, questions) {
+      clearInterval(timerInterval);
+      submitBtn.disabled = true;
+
+      let score = 0;
+      const answers = [];
+
+      questions.forEach((q, i) => {
+        const selected = document.querySelector(`input[name="q${i}"]:checked`);
+        const answer = selected ? selected.value : "";
+        answers.push(answer);
+        if (answer === q.correctAnswer) score++;
+      });
+
+      const responseRef = doc(db, "responses", userId);
+      const responseSnap = await getDoc(responseRef);
+      const existingData = responseSnap.exists() ? responseSnap.data() : {};
+
+      const timestamp = new Date().toISOString();
+      const newData = {
+        ...existingData,
+        [quizId]: {
+          score,
+          testName: quizData.name || "Quiz",
+          timestamp
+        }
+      };
+
+      await setDoc(responseRef, newData);
+
+      quizForm.innerHTML = `<h3>Your score: ${score} / ${questions.length}</h3>`;
+      showToast(`Quiz submitted. Score: ${score}`);
+    }
+
+    onAuthStateChanged(auth, async (user) => {
+  if (!user) {
+    showToast("Please log in.");
+    return;
+  }
+
+  const quizRef = doc(db, "tests", quizId);
+  const quizSnap = await getDoc(quizRef);
+
+  if (!quizSnap.exists()) {
+    quizTitle.textContent = "Quiz not found.";
+    return;
+  }
+
+  // ✅ Fetch the quiz data first
+  quizData = quizSnap.data();
+
+  const responseRef = doc(db, "responses", user.uid);
+  const responseSnap = await getDoc(responseRef);
+  const alreadySubmitted = responseSnap.exists() && responseSnap.data()[quizId];
+
+  if (alreadySubmitted) {
+    const result = responseSnap.data()[quizId];
+    quizTitle.textContent = `You've already attempted this quiz: "${result.testName}"`;
+    quizForm.innerHTML = `<h3>Your previous score: ${result.score}</h3>`;
+    document.getElementById('timer').innerHTML = "Test Completed";
+    // ✅ Now quizData is defined — this will work
+    let resultHtml = `<div class="results">`;
+    quizData.questions.forEach((q, index) => {
+      resultHtml += `
+        <div style="margin-bottom: 1rem;">
+          <strong>Q${index + 1}: ${q.question}</strong><br/>
+          <span style="color: green;">✔ Correct Answer: ${q.correctAnswer}</span>
+        </div>
+      `;
+    });
+    resultHtml += `</div><br>`;
+    quizForm.innerHTML += resultHtml;
+
+    submitBtn.style.display = "block";
+    submitBtn.innerText = "Back";
+    submitBtn.onclick = () => window.location.href = "./user-dashboard.html";
+    return;
+  }
+
+  quizTitle.textContent = quizData.name || "Quiz";
+  renderQuestions(quizData.questions);
+
+  startTimer(quizData.duration);
+
+  submitBtn.style.display = "block";
+  submitBtn.innerText = "Submit";
+  submitBtn.onclick = () => {
+    submitAnswers(user.uid, quizData.questions);
+    submitBtn.innerText = "Back";
+    setTimeout(() => {
+      window.location.href = "./user-dashboard.html";
+    }, 2000);
+  };
+});
+
+  </script>
+</body>
+
+</html>
