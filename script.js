@@ -32,6 +32,9 @@ signupBtn?.addEventListener("click", async () => {
 
 function showLoader() {
     document.getElementById("loader").style.display = "flex";
+    setTimeout(() => {
+      document.getElementById("loader").style.display = "none"; 
+    }, 6000);
 }
 
 function hideLoader() {
@@ -143,6 +146,7 @@ document.querySelector("#register button").addEventListener("click", async () =>
     showToast("Registration Failed: Check the credentials");
   }
 });
+
 
 
 
