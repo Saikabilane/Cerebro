@@ -11,83 +11,26 @@
       padding: 1rem;
       background: #f9f9f9;
     }
-
-    .container {
-      max-width: 800px;
-      margin: auto;
-    }
-
+    .container { max-width: 800px; margin: auto; }
     .question {
-      background: #fff;
-      border: 1px solid #ccc;
-      padding: 1rem;
-      margin-bottom: 1rem;
-      border-radius: 6px;
+      background: #fff; border: 1px solid #ccc; padding: 1rem; margin-bottom: 1rem; border-radius: 6px;
     }
-
-    .question h3 {
-      margin-top: 0;
-    }
-
+    .question h3 { margin-top: 0; }
     .timer {
-      font-size: 1.5rem;
-      font-weight: bold;
-      text-align: center;
-      color: red;
-      margin-bottom: 1rem;
+      font-size: 1.5rem; font-weight: bold; text-align: center; color: red; margin-bottom: 1rem;
     }
-
     .toast {
-      position: fixed;
-      top: 20px;
-      left: 50%;
-      transform: translateX(-50%);
-      background-color: white;
-      color: orange;
-      padding: 12px 20px;
-      border: 1px solid orange;
-      border-radius: 5px;
-      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
-      opacity: 0;
-      animation: fadeInOut 4s ease forwards;
-      z-index: 1000;
+      position: fixed; top: 20px; left: 50%; transform: translateX(-50%);
+      background-color: white; color: orange; padding: 12px 20px; border: 1px solid orange; border-radius: 5px;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.3); opacity: 0; animation: fadeInOut 4s ease forwards; z-index: 1000;
     }
-
     @keyframes fadeInOut {
-      0% {
-        opacity: 0;
-        transform: translateY(-10px);
-      }
-
-      10%,
-      90% {
-        opacity: 1;
-        transform: translateY(0);
-      }
-
-      100% {
-        opacity: 0;
-        transform: translateY(-10px);
-      }
+      0% { opacity: 0; transform: translateY(-10px); }
+      10%, 90% { opacity: 1; transform: translateY(0); }
+      100% { opacity: 0; transform: translateY(-10px); }
     }
-
-    button {
-      background: orange;
-      border: none;
-      color: white;
-      padding: 10px 20px;
-      border-radius: 5px;
-      cursor: pointer;
-    }
-
-    .results {
-      background: #fff;
-      padding: 1rem;
-      border-radius: 8px;
-      margin-top: 1rem;
-      box-shadow: 0 0 5px rgba(0,0,0,0.1);
-    }
-
+    button { background: orange; border: none; color: white; padding: 10px 20px; border-radius: 5px; cursor: pointer; }
+    .results { background: #fff; padding: 1rem; border-radius: 8px; margin-top: 1rem; box-shadow: 0 0 5px rgba(0,0,0,0.1); }
   </style>
 </head>
 
@@ -126,7 +69,10 @@
 
     let quizData = null;
     let timerInterval = null;
+    let userGlobal = null;
+    let isSubmitting = false;
 
+    // ---------- Toast ----------
     function showToast(msg) {
       const div = document.createElement("div");
       div.className = "toast";
@@ -135,6 +81,22 @@
       setTimeout(() => div.remove(), 4000);
     }
 
+    // ---------- Local attempt storage (reliable unload handling) ----------
+    function attemptKey(userId) {
+      return `quiz_attempt_${userId}_${quizId}`;
+    }
+    function loadAttempt(userId) {
+      try { return JSON.parse(localStorage.getItem(attemptKey(userId)) || "{}"); } catch { return {}; }
+    }
+    function saveAttempt(userId, patch) {
+      const current = loadAttempt(userId);
+      localStorage.setItem(attemptKey(userId), JSON.stringify({ ...current, ...patch }));
+    }
+    function clearAttempt(userId) {
+      localStorage.removeItem(attemptKey(userId));
+    }
+
+    // ---------- Rendering ----------
     function renderQuestions(questions) {
       quizForm.innerHTML = "";
       questions.forEach((q, i) => {
@@ -142,19 +104,65 @@
         div.className = "question";
         div.innerHTML = `<h3>Q${i + 1}. ${q.question}</h3>`;
         q.options.forEach(opt => {
+          const id = `q${i}_${encodeURIComponent(opt)}`;
           div.innerHTML += `
-            <label>
-              <input type="radio" name="q${i}" value="${opt}" /> ${opt}
+            <label for="${id}">
+              <input id="${id}" type="radio" name="q${i}" value="${opt}" /> ${opt}
             </label><br/>
           `;
         });
         quizForm.appendChild(div);
       });
+
+      // Save answers to local storage as user selects
+      quizForm.addEventListener("change", (e) => {
+        if (!userGlobal) return;
+        const t = e.target;
+        if (t && t.name && t.type === "radio") {
+          const idx = parseInt(t.name.replace("q",""), 10);
+          const attempt = loadAttempt(userGlobal.uid);
+          const answers = attempt.lastSavedAnswers || {};
+          answers[idx] = t.value;
+          saveAttempt(userGlobal.uid, { lastSavedAnswers: answers });
+        }
+      });
     }
 
+    function restoreSelections(userId, questions) {
+      const attempt = loadAttempt(userId);
+      const answers = attempt.lastSavedAnswers || {};
+      questions.forEach((q, i) => {
+        const val = answers[i];
+        if (!val) return;
+        const input = quizForm.querySelector(`input[name="q${i}"][value="${CSS.escape(val)}"]`);
+        if (input) input.checked = true;
+      });
+    }
+
+    function renderResults(score, questions) {
+      timerDiv.textContent = "Test Completed";
+      let resultHtml = `<h3>Your score: ${score} / ${questions.length}</h3>`;
+      resultHtml += `<div class="results">`;
+      questions.forEach((q, index) => {
+        resultHtml += `
+          <div style="margin-bottom: 1rem;">
+            <strong>Q${index + 1}: ${q.question}</strong><br/>
+            <span style="color: green;">✔ Correct Answer: ${q.correctAnswer}</span>
+          </div>
+        `;
+      });
+      resultHtml += `</div>`;
+      quizForm.innerHTML = resultHtml;
+
+      submitBtn.style.display = "block";
+      submitBtn.innerText = "Back";
+      submitBtn.disabled = false;
+      submitBtn.onclick = () => window.location.href = "./user-dashboard.html";
+    }
+
+    // ---------- Timer ----------
     function startTimer(durationMinutes) {
       let totalSeconds = durationMinutes * 60;
-
       function updateTimer() {
         if (totalSeconds <= 0) {
           clearInterval(timerInterval);
@@ -162,113 +170,138 @@
           if (!submitBtn.disabled) submitBtn.click();
           return;
         }
-
         const mins = Math.floor(totalSeconds / 60);
         const secs = totalSeconds % 60;
         timerDiv.textContent = `Time Remaining: ${mins}m ${secs}s`;
         totalSeconds--;
       }
-
-      updateTimer(); // Run immediately
+      updateTimer();
       timerInterval = setInterval(updateTimer, 1000);
     }
 
-    async function submitAnswers(userId, questions) {
+    // ---------- Answers collection ----------
+    function collectAnswers(questions) {
+      const answers = [];
+      questions.forEach((q, i) => {
+        const selected = document.querySelector(`input[name="q${i}"]:checked`);
+        answers.push(selected ? selected.value : "");
+      });
+      return answers;
+    }
+
+    function answersFromMap(questions, mapObj = {}) {
+      const arr = [];
+      for (let i = 0; i < questions.length; i++) {
+        arr.push(mapObj[i] || "");
+      }
+      return arr;
+    }
+
+    // ---------- Submit ----------
+    async function submitAnswers(userId, questions, overrideAnswers = null) {
+      if (isSubmitting) return;
+      isSubmitting = true;
       clearInterval(timerInterval);
       submitBtn.disabled = true;
 
+      const answers = overrideAnswers || collectAnswers(questions);
       let score = 0;
-      const answers = [];
+      questions.forEach((q, i) => { if (answers[i] === q.correctAnswer) score++; });
 
-      questions.forEach((q, i) => {
-        const selected = document.querySelector(`input[name="q${i}"]:checked`);
-        const answer = selected ? selected.value : "";
-        answers.push(answer);
-        if (answer === q.correctAnswer) score++;
-      });
-
+      // Save into Firestore under responses/{userId}, merging fields
       const responseRef = doc(db, "responses", userId);
-      const responseSnap = await getDoc(responseRef);
-      const existingData = responseSnap.exists() ? responseSnap.data() : {};
-
       const timestamp = new Date().toISOString();
-      const newData = {
-        ...existingData,
+      await setDoc(responseRef, {
         [quizId]: {
           score,
           testName: quizData.name || "Quiz",
           timestamp
         }
-      };
+      }, { merge: true });
 
-      await setDoc(responseRef, newData);
+      // Clear the local attempt because it's now submitted
+      clearAttempt(userId);
 
-      quizForm.innerHTML = `<h3>Your score: ${score} / ${questions.length}</h3>`;
+      renderResults(score, questions);
       showToast(`Quiz submitted. Score: ${score}`);
     }
 
+    // ---------- Mark for auto-submit on leave (reliable next-load submit) ----------
+    function markForAutoSubmit() {
+      if (!userGlobal || !quizData) return;
+      if (submitBtn.disabled) return; // already submitted
+      const answersNow = collectAnswers(quizData.questions);
+      const map = {};
+      answersNow.forEach((v, i) => { if (v) map[i] = v; });
+      saveAttempt(userGlobal.uid, {
+        autoSubmitRequested: true,
+        lastSavedAnswers: map
+      });
+    }
+    window.addEventListener("beforeunload", markForAutoSubmit);
+    window.addEventListener("pagehide", markForAutoSubmit);
+
+    // ---------- Main flow ----------
     onAuthStateChanged(auth, async (user) => {
-  if (!user) {
-    showToast("Please log in.");
-    return;
-  }
+      if (!user) {
+        showToast("Please log in.");
+        quizTitle.textContent = "Please log in to take the quiz.";
+        timerDiv.textContent = "";
+        return;
+      }
+      userGlobal = user;
 
-  const quizRef = doc(db, "tests", quizId);
-  const quizSnap = await getDoc(quizRef);
+      const quizRef = doc(db, "tests", quizId);
+      const quizSnap = await getDoc(quizRef);
+      if (!quizSnap.exists()) {
+        quizTitle.textContent = "Quiz not found.";
+        timerDiv.textContent = "";
+        return;
+      }
+      quizData = quizSnap.data();
 
-  if (!quizSnap.exists()) {
-    quizTitle.textContent = "Quiz not found.";
-    return;
-  }
+      // If already submitted, show results
+      const responseRef = doc(db, "responses", user.uid);
+      const responseSnap = await getDoc(responseRef);
+      const alreadySubmitted = responseSnap.exists() && responseSnap.data()[quizId];
 
-  // ✅ Fetch the quiz data first
-  quizData = quizSnap.data();
+      if (alreadySubmitted) {
+        const result = responseSnap.data()[quizId];
+        quizTitle.textContent = `You've already attempted this quiz: "${result.testName}"`;
+        renderResults(result.score, quizData.questions);
+        return;
+      }
 
-  const responseRef = doc(db, "responses", user.uid);
-  const responseSnap = await getDoc(responseRef);
-  const alreadySubmitted = responseSnap.exists() && responseSnap.data()[quizId];
+      // If user previously left (reload/back/close), auto-submit immediately on load
+      const attempt = loadAttempt(user.uid);
+      if (attempt && attempt.autoSubmitRequested) {
+        quizTitle.textContent = quizData.name || "Quiz";
+        timerDiv.textContent = "Finalizing your attempt...";
+        const answersOverride = answersFromMap(quizData.questions, attempt.lastSavedAnswers || {});
+        await submitAnswers(user.uid, quizData.questions, answersOverride);
+        return;
+      }
 
-  if (alreadySubmitted) {
-    const result = responseSnap.data()[quizId];
-    quizTitle.textContent = `You've already attempted this quiz: "${result.testName}"`;
-    quizForm.innerHTML = `<h3>Your previous score: ${result.score}</h3>`;
-    document.getElementById('timer').innerHTML = "Test Completed";
-    // ✅ Now quizData is defined — this will work
-    let resultHtml = `<div class="results">`;
-    quizData.questions.forEach((q, index) => {
-      resultHtml += `
-        <div style="margin-bottom: 1rem;">
-          <strong>Q${index + 1}: ${q.question}</strong><br/>
-          <span style="color: green;">✔ Correct Answer: ${q.correctAnswer}</span>
-        </div>
-      `;
+      // Normal quiz rendering
+      quizTitle.textContent = quizData.name || "Quiz";
+      renderQuestions(quizData.questions);
+      restoreSelections(user.uid, quizData.questions);
+      startTimer(quizData.duration);
+
+      submitBtn.style.display = "block";
+      submitBtn.innerText = "Submit";
+      submitBtn.disabled = false;
+      submitBtn.onclick = async () => {
+        await submitAnswers(user.uid, quizData.questions);
+        submitBtn.innerText = "Back";
+        setTimeout(() => {
+          window.location.href = "./user-dashboard.html";
+        }, 2000);
+      };
+
+      // Mark that this attempt started (useful for debugging/analytics)
+      saveAttempt(user.uid, { startedAt: new Date().toISOString() });
     });
-    resultHtml += `</div><br>`;
-    quizForm.innerHTML += resultHtml;
-
-    submitBtn.style.display = "block";
-    submitBtn.innerText = "Back";
-    submitBtn.onclick = () => window.location.href = "./user-dashboard.html";
-    return;
-  }
-
-  quizTitle.textContent = quizData.name || "Quiz";
-  renderQuestions(quizData.questions);
-
-  startTimer(quizData.duration);
-
-  submitBtn.style.display = "block";
-  submitBtn.innerText = "Submit";
-  submitBtn.onclick = () => {
-    submitAnswers(user.uid, quizData.questions);
-    submitBtn.innerText = "Back";
-    setTimeout(() => {
-      window.location.href = "./user-dashboard.html";
-    }, 2000);
-  };
-});
-
   </script>
 </body>
-
 </html>
