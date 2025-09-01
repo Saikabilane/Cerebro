@@ -113,29 +113,36 @@ document.querySelector("#admin button").addEventListener("click", async () => {
       showToast("Login Failed: Invalid admin credentials.");
     }
 });
-
 // Register New User
 document.querySelector("#register button").addEventListener("click", async () => {
   const name = document.querySelector("#register input[type='text']").value;
-  const email = document.querySelector("#register input[type='email']").value;
+  const email = document.querySelector("#register input[type='email']").value.trim();
   const password = document.querySelector("#register input[type='password']").value;
+
+  // ✅ Email format: xx + l + xxx + @psgtech.ac.in
+  const emailPattern = /^[a-zA-Z0-9]{2}l[a-zA-Z0-9]{3}@psgtech\.ac\.in$/i;
+  if (!emailPattern.test(email)) {
+    showToast("Login with College mail id.");
+    return;
+  }
 
   try {
     // Step 1: Create user with email & password
     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
     const user = userCredential.user;
 
-    // Step 2: Set the display name in Firebase Authentication
+    // Step 2: Set display name in Firebase Authentication
     await updateProfile(user, {
       displayName: name
     });
 
-    // Step 3: (Optional) Store name in Firestore if needed
+    // Step 3: Store user info in Firestore
     await setDoc(doc(db, "users", user.uid), {
-      name: name
+      name: name,
+      email: email
     });
 
-    // Step 4: Show success and reset fields
+    // Step 4: Success
     showToast("User registered: " + name);
     document.querySelector("#register input[type='text']").value = '';
     document.querySelector("#register input[type='password']").value = '';
@@ -143,10 +150,6 @@ document.querySelector("#register button").addEventListener("click", async () =>
     showForm('user');
   } catch (error) {
     console.error(error);
-    showToast("Registration Failed: Check the credentials");
+    showToast("Registration Failed: " + error.message);
   }
 });
-
-
-
-
