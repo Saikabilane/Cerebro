@@ -6,6 +6,33 @@ import {
   updateProfile
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import { auth } from "./firebaseConfig.js";
+import { sendPasswordResetEmail } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+
+// Show Forgot Password form when link is clicked
+document.getElementById("forgotPasswordLink")?.addEventListener("click", (e) => {
+  e.preventDefault();
+  showForm("forgotPassword");
+});
+
+// Handle Reset Password
+document.getElementById("resetPasswordBtn")?.addEventListener("click", async () => {
+  const resetEmail = document.getElementById("resetEmail").value.trim();
+
+  if (!resetEmail) {
+    showToast("Please enter your email.");
+    return;
+  }
+
+  try {
+    await sendPasswordResetEmail(auth, resetEmail);
+    showToast("Password reset link sent to " + resetEmail);
+    document.getElementById("resetEmail").value = "";
+    setTimeout(() => showForm("user"), 2000);
+  } catch (error) {
+    console.error(error);
+    showToast("Error: " + error.message);
+  }
+});
 
 const signupBtn = document.getElementById("signupBtn");
 
