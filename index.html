@@ -58,7 +58,10 @@
                 <input id="Username" type="text" placeholder="Registered Mail id">
                 <input id="Password" type="password" placeholder="Password">
                 <button>Login</button>
-            </div>
+                <p>
+                  <a href="#" id="forgotPasswordLink" style="color:orange">Forgot Password?</a>
+                </p>
+            </div>            
 
             <div id="admin" class="form" style="display: none;">
                 <h2>Admin Login</h2>
@@ -74,6 +77,16 @@
                 <input id="Password" type="password" placeholder="Password">
                 <button id="signupBtn">Sign Up</button>
             </div>
+
+            <div id="forgotPassword" class="form" style="display: none;">
+                <h2>Reset Password</h2>
+                <input id="resetEmail" type="email" placeholder="Enter your registered email">
+                <button id="resetPasswordBtn">Send Reset Link</button>
+                <p>
+                  <a href="#" onclick="showForm('user')">Back to Login</a>
+                </p>
+            </div>
+            
         </div>
     </div>
 
